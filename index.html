@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Virtual Strings: Ensemble</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+        body {
+            font-family: 'Playfair Display', serif;
+            background-color: #1a0f0a;
+            /* Deep wood background texture */
+            background-image: repeating-linear-gradient(
+                45deg,
+                #2d1606 25%,
+                transparent 25%,
+                transparent 75%,
+                #2d1606 75%,
+                #2d1606
+            ),
+            repeating-linear-gradient(
+                45deg,
+                #2d1606 25%,
+                #1a0f0a 25%,
+                #1a0f0a 75%,
+                #2d1606 75%,
+                #2d1606
+            );
+            background-position: 0 0, 10px 10px;
+            background-size: 20px 20px;
+            touch-action: none; /* Prevent scrolling while playing on mobile */
+            overflow: hidden;
+        }
+
+        /* Wood paneling for the main instrument body */
+        .wood-panel {
+            background: linear-gradient(135deg, #4a2511 0%, #2b1104 100%);
+            box-shadow: 
+                inset 0 0 50px rgba(0,0,0,0.8),
+                0 20px 50px rgba(0,0,0,0.9),
+                0 0 0 2px #5c341e,
+                0 0 0 10px #1a0a03;
+        }
+
+        .f-hole {
+            opacity: 0.15;
+            pointer-events: none;
+            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.8));
+        }
+
+        /* Piano Key Styling */
+        .keyboard {
+            position: relative;
+            display: flex;
+            justify-content: flex-start;
+            height: 250px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            background: #111;
+            padding: 4px;
+            overflow-x: auto;
+        }
+
+        .key {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 10px;
+            font-family: sans-serif;
+            font-size: 0.75rem;
+            user-select: none;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+
+        .key-white {
+            flex: 1 0 35px;
+            max-width: 50px;
+            height: 100%;
+            background: linear-gradient(to bottom, #fff 0%, #f0f0f0 100%);
+            border: 1px solid #ccc;
+            border-radius: 0 0 5px 5px;
+            color: #666;
+            z-index: 1;
+            box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 #ccc, 0 2px 3px rgba(0,0,0,0.3);
+        }
+
+        .key-white.active {
+            background: linear-gradient(to bottom, #e0e0e0 0%, #d0d0d0 100%);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+            transform: translateY(1px);
+        }
+
+        .key-black {
+            flex: 0 0 24px;
+            height: 60%;
+            background: linear-gradient(to bottom, #333 0%, #000 100%);
+            border: 1px solid #000;
+            border-radius: 0 0 4px 4px;
+            color: #aaa;
+            z-index: 2;
+            margin-left: -12px;
+            margin-right: -12px;
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.2), 0 3px 5px rgba(0,0,0,0.5);
+        }
+
+        .key-black.active {
+            background: linear-gradient(to bottom, #222 0%, #000 100%);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+            transform: translateY(1px);
+        }
+
+        /* Fingerboard (Strings Area) */
+        .fingerboard {
+            position: relative;
+            height: 120px;
+            background: linear-gradient(to right, #1a0f0a, #2d1b11, #1a0f0a);
+            border-radius: 4px;
+            box-shadow: inset 0 5px 15px rgba(0,0,0,0.9), 0 5px 10px rgba(0,0,0,0.5);
+            display: flex;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            border: 1px solid #000;
+        }
+
+        .fb-string {
+            position: absolute;
+            left: 0;
+            right: 0;
+            min-width: 100%;
+            background: linear-gradient(to bottom, #f3f4f6, #9ca3af, #374151);
+            box-shadow: 0 3px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .fb-fret {
+            flex: 1 0 30px;
+            position: relative;
+            border-right: 1px solid rgba(255,255,255,0.05);
+            z-index: 2;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+
+        .fb-fret:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .fb-fret.active {
+            background-color: rgba(245, 158, 11, 0.3);
+            box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.5);
+        }
+
+        /* Fret markers (dots) */
+        .fb-fret:nth-child(3)::after, .fb-fret:nth-child(5)::after, .fb-fret:nth-child(7)::after,
+        .fb-fret:nth-child(9)::after, .fb-fret:nth-child(15)::after, .fb-fret:nth-child(17)::after,
+        .fb-fret:nth-child(19)::after, .fb-fret:nth-child(21)::after {
+            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 8px; height: 8px; background-color: rgba(255,255,255,0.4); border-radius: 50%; pointer-events: none;
+        }
+        
+        .fb-fret:nth-child(12)::after, .fb-fret:nth-child(24)::after {
+            content: ''; position: absolute; top: 30%; left: 50%; transform: translateX(-50%);
+            width: 8px; height: 8px; background-color: rgba(255,255,255,0.4); border-radius: 50%;
+            box-shadow: 0 40px 0 rgba(255,255,255,0.4); pointer-events: none;
+        }
+
+        /* Modal Overlay */
+        #start-overlay {
+            backdrop-filter: blur(8px);
+        }
+
+        /* Toggle Checkbox specific styles */
+        input:checked ~ .dot { transform: translateX(100%); background-color: #f0abfc; }
+        input:checked ~ .block { border-color: #c026d3; }
+
+        /* Custom Scrollbar for elements */
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.4); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.6); }
+
+        .fuchsia-scrollbar::-webkit-scrollbar-thumb { background: rgba(192, 38, 211, 0.4); }
+        .fuchsia-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(192, 38, 211, 0.6); }
+
+    </style>
+</head>
+<body class="w-screen h-screen flex items-center justify-center text-amber-100 p-4">
+
+    <!-- Start Overlay (Required to initialize Web Audio API) -->
+    <div id="start-overlay" class="absolute inset-0 z-50 flex items-center justify-center bg-black/80 transition-opacity duration-500 cursor-pointer">
+        <div class="text-center">
+            <h1 class="text-5xl font-bold text-amber-500 mb-4 drop-shadow-lg">Виртуальные Инструменты</h1>
+            <p class="text-xl text-amber-200 mb-8">Нажмите в любом месте, чтобы начать</p>
+            <button class="px-8 py-3 bg-amber-700 hover:bg-amber-600 rounded-full text-white font-bold transition shadow-lg shadow-amber-900/50">
+                Начать
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="wood-panel rounded-3xl p-4 sm:p-8 shadow-2xl w-full max-w-5xl relative overflow-y-auto max-h-full custom-scrollbar border border-amber-900/30 transition-all duration-700">
+        
+        <div class="flex-1 flex flex-col relative z-20">
+            <!-- Decorative F-Holes -->
+            <svg class="absolute -left-4 sm:left-0 top-1/4 h-1/2 w-12 sm:w-16 f-hole text-black hidden sm:block" viewBox="0 0 100 300" fill="currentColor">
+                <path d="M45,20 C50,0 70,0 70,20 C70,40 55,50 50,80 C45,110 50,150 55,180 C60,210 70,230 70,250 C70,280 40,290 35,260 C30,230 45,210 50,180 C55,150 50,110 45,80 C40,50 30,40 30,20 C30,0 40,0 45,20 Z" />
+            </svg>
+            <svg class="absolute -right-4 sm:right-0 top-1/4 h-1/2 w-12 sm:w-16 f-hole text-black transform scale-x-[-1] hidden sm:block" viewBox="0 0 100 300" fill="currentColor">
+                <path d="M45,20 C50,0 70,0 70,20 C70,40 55,50 50,80 C45,110 50,150 55,180 C60,210 70,230 70,250 C70,280 40,290 35,260 C30,230 45,210 50,180 C55,150 50,110 45,80 C40,50 30,40 30,20 C30,0 40,0 45,20 Z" />
+            </svg>
+
+            <!-- Header Controls -->
+            <div class="flex flex-col items-center mb-6 relative z-20">
+                <h1 class="text-4xl text-amber-500 font-bold tracking-wider mb-6 drop-shadow-md transition-colors duration-500" id="main-title">Симфония</h1>
+                
+                <!-- Instruments selector -->
+                <div class="bg-black/40 p-1 rounded-full flex flex-wrap justify-center gap-2 border border-amber-800/50 shadow-inner max-w-2xl">
+                    <button id="btn-flute" class="px-4 py-2 rounded-full font-bold transition-all bg-amber-700 text-white shadow-lg text-sm sm:text-base">
+                        Флейта
+                    </button>
+                    <button id="btn-viola" class="px-4 py-2 rounded-full font-bold transition-all text-amber-500 hover:text-white hover:bg-white/10 text-sm sm:text-base">
+                        Альт
+                    </button>
+                    <button id="btn-piano" class="px-4 py-2 rounded-full font-bold transition-all text-amber-500 hover:text-white hover:bg-white/10 text-sm sm:text-base">
+                        Пианино
+                    </button>
+                    <button id="btn-violin" class="px-4 py-2 rounded-full font-bold transition-all text-amber-500 hover:text-white hover:bg-white/10 text-sm sm:text-base">
+                        Скрипка
+                    </button>
+                    <button id="btn-electon" class="px-4 py-2 rounded-full font-bold transition-all text-amber-500 hover:text-white hover:bg-white/10 text-sm sm:text-base">
+                        Електон
+                    </button>
+                    <button id="btn-galvatron" class="px-4 py-2 rounded-full font-bold transition-all text-amber-500 hover:text-white hover:bg-white/10 text-sm sm:text-base">
+                        Гальватрон
+                    </button>
+                </div>
+            </div>
+
+            <!-- COMBINED CONTROL CENTER -->
+            <div class="flex flex-col lg:flex-row gap-4 mb-4 w-full z-20 relative max-w-4xl mx-auto">
+                
+                <!-- Controls (Left) -->
+                <div class="flex-1 flex flex-col justify-center gap-4 bg-black/50 px-6 py-5 rounded-2xl border border-amber-900/50 transition-colors duration-500" id="controls-panel">
+                    <!-- Transpose -->
+                    <div class="flex items-center justify-between sm:justify-start gap-4">
+                        <label class="text-amber-400 text-sm font-bold uppercase tracking-wider transition-colors" id="transpose-label">Тональность:</label>
+                        <input type="range" id="transpose" min="-12" max="12" value="0" step="1" class="flex-1 max-w-[120px] accent-amber-500">
+                        <span id="transpose-val" class="text-amber-200 font-mono w-8 text-right">0</span>
+                    </div>
+                    
+                    <!-- Synth Mode Toggle -->
+                    <div class="flex items-center justify-between sm:justify-start gap-4 mt-2">
+                        <label class="text-amber-400 text-sm font-bold uppercase tracking-wider transition-colors" id="synth-label">Киберпанк:</label>
+                        <label class="flex items-center cursor-pointer">
+                            <div class="relative">
+                                <input type="checkbox" id="synth-mode-toggle" class="sr-only">
+                                <div class="block bg-gray-800 w-12 h-6 rounded-full border border-amber-900 transition-colors"></div>
+                                <div class="dot absolute left-1 top-1 bg-amber-500 w-4 h-4 rounded-full transition-transform duration-300"></div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- History (Right) -->
+                <div class="flex-1 min-w-0 bg-black/50 p-4 rounded-2xl border border-amber-800/50 flex flex-col transition-colors duration-500" id="history-panel">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-sm text-amber-500 font-bold uppercase tracking-wider transition-colors duration-500" id="history-title">Аудит нот</h2>
+                        <button id="btn-play-history" class="px-3 py-1.5 bg-amber-700 hover:bg-amber-600 rounded text-white text-xs font-bold transition shadow-md shadow-amber-900/20 flex items-center gap-1">
+                            ▶ Проиграть
+                        </button>
+                    </div>
+                    <div id="history-list" class="flex w-full overflow-x-auto h-[55px] items-center gap-1 text-xs font-mono text-amber-200/80 custom-scrollbar pb-1">
+                        <div class="text-center text-amber-700/50 w-full" id="history-empty">Пока пусто...</div>
+                    </div>
+                </div>
+            </div>
+
+            <p id="instrument-desc" class="text-center text-amber-400/70 text-sm italic transition-colors mb-4">Флейта: Чистый, 'свистящий' звук с мягкой атакой.</p>
+
+            <!-- Instrument Play Area -->
+            <div class="relative px-0 sm:px-8 flex flex-col gap-4 mt-2 z-20">
+                
+                <!-- Strings Fingerboard -->
+                <div id="fingerboard" class="fingerboard custom-scrollbar">
+                    <div class="fb-string" style="top: 20%; height: 1px;"></div>
+                    <div class="fb-string" style="top: 40%; height: 2px;"></div>
+                    <div class="fb-string" style="top: 60%; height: 3px;"></div>
+                    <div class="fb-string" style="top: 80%; height: 4px;"></div>
+                </div>
+
+                <div class="text-center text-amber-700/60 text-xs font-bold uppercase tracking-widest mb-1 mt-1">Клавишная альтернатива</div>
+
+                <!-- Keyboard Container -->
+                <div id="keyboard" class="keyboard custom-scrollbar"></div>
+            </div>
+
+            <!-- AI Composer Section -->
+            <div class="mt-8 max-w-4xl mx-auto w-full bg-black/40 p-6 rounded-2xl border border-amber-800/50 relative z-20 transition-colors duration-500" id="ai-composer-panel">
+                <h2 class="text-xl text-amber-500 font-bold mb-4 flex items-center gap-2 transition-colors duration-500" id="ai-composer-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                    ИИ-Композитор
+                </h2>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <input type="text" id="ai-prompt" placeholder="Напр. Эпичный футуристичный саундтрек..." class="flex-1 bg-black/50 border border-amber-900/50 rounded-lg px-4 py-2 text-amber-100 placeholder-amber-700/50 focus:outline-none focus:border-amber-500 transition-colors">
+                    <button id="btn-compose" class="px-6 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-white font-bold transition shadow-lg shadow-amber-900/20 whitespace-nowrap flex items-center justify-center gap-2">
+                        Создать ✨
+                    </button>
+                </div>
+                <p id="ai-status" class="mt-3 text-amber-400/70 text-sm h-5 italic transition-colors"></p>
+            </div>
+
+            <div class="mt-6 pb-4 text-center text-amber-600/50 text-xs transition-colors" id="footer-text">
+                Играйте мышкой, касанием или на клавиатуре (A-L).
+            </div>
+        </div> 
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 1. Audio Engine (Web Audio API) ---
+            let audioCtx;
+            let masterGain;
+            let delayNode;
+            let feedbackGain;
+            let noiseBuffer = null; 
+            const activeSynths = {}; 
+            let currentInstrument = 'flute';
+            let transposeValue = 0;
+            let isSynthMode = false;
+
+            function initAudio() {
+                if (audioCtx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+                
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.8; 
+                
+                const compressor = audioCtx.createDynamicsCompressor();
+                compressor.threshold.value = -24;
+                compressor.ratio.value = 6;
+                compressor.attack.value = 0.003;
+                compressor.release.value = 0.25;
+                
+                delayNode = audioCtx.createDelay(1.0);
+                delayNode.delayTime.value = 0.33;
+                feedbackGain = audioCtx.createGain();
+                feedbackGain.gain.value = 0.35; 
+                
+                delayNode.connect(feedbackGain);
+                feedbackGain.connect(delayNode);
+                delayNode.connect(compressor);
+
+                masterGain.connect(compressor);
+                compressor.connect(audioCtx.destination);
+
+                const bufferSize = audioCtx.sampleRate * 2; 
+                noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1; 
+                }
+            }
+
+            function playTone(frequency, noteName) {
+                if (!audioCtx) return;
+
+                if (activeSynths[noteName]) {
+                    stopTone(noteName);
+                }
+
+                if (currentInstrument === 'electon' && !isSynthMode) {
+                    const delayTime = 1 / frequency;
+                    
+                    const burst = audioCtx.createBufferSource();
+                    burst.buffer = noiseBuffer;
+                    
+                    const burstFilter = audioCtx.createBiquadFilter();
+                    burstFilter.type = 'lowpass';
+                    burstFilter.frequency.value = 2500;
+                    
+                    const burstEnv = audioCtx.createGain();
+                    burstEnv.gain.setValueAtTime(0, audioCtx.currentTime);
+                    burstEnv.gain.linearRampToValueAtTime(1.2, audioCtx.currentTime + 0.002);
+                    burstEnv.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02); 
+                    
+                    burst.connect(burstFilter);
+                    burstFilter.connect(burstEnv);
+
+                    const delay = audioCtx.createDelay(1.0);
+                    delay.delayTime.value = delayTime;
+                    
+                    const dampFilter = audioCtx.createBiquadFilter();
+                    dampFilter.type = 'lowpass';
+                    dampFilter.frequency.value = Math.max(1000, frequency * 4); 
+                    
+                    const feedback = audioCtx.createGain();
+                    feedback.gain.value = 0.985;
+
+                    const outGain = audioCtx.createGain();
+                    outGain.gain.value = 1.0;
+
+                    burstEnv.connect(delay);
+                    burstEnv.connect(outGain); 
+                    delay.connect(dampFilter);
+                    dampFilter.connect(feedback);
+                    feedback.connect(delay); 
+                    delay.connect(outGain);
+                    
+                    outGain.connect(masterGain);
+                    burst.start();
+
+                    activeSynths[noteName] = { gainNode: outGain, feedbackNode: feedback, burst, delay, isKS: true };
+                    return; 
+                }
+
+                const osc1 = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                
+                osc1.frequency.value = frequency;
+                osc2.frequency.value = frequency;
+
+                let osc3 = null; 
+                let noiseSource = null; 
+                
+                const lfo = audioCtx.createOscillator();
+                const lfoGain = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
+                const gainNode = audioCtx.createGain();
+
+                if (isSynthMode) {
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'square';
+                    osc2.detune.value = 15; 
+                    
+                    lfo.type = 'sine';
+                    lfo.frequency.value = 4.0;
+                    lfoGain.gain.value = 10;
+                    
+                    filter.type = 'lowpass';
+                    filter.Q.value = 3; 
+                    filter.frequency.setValueAtTime(Math.max(400, frequency * 1.5), audioCtx.currentTime);
+                    filter.frequency.exponentialRampToValueAtTime(Math.max(800, frequency * 6), audioCtx.currentTime + 0.3);
+                    filter.frequency.exponentialRampToValueAtTime(Math.max(400, frequency * 1.5), audioCtx.currentTime + 1.2);
+
+                    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.1); 
+                    gainNode.gain.exponentialRampToValueAtTime(0.3, audioCtx.currentTime + 0.8);
+
+                    gainNode.connect(delayNode); 
+
+                } else {
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'sawtooth';
+                    
+                    if (currentInstrument === 'flute') {
+                        osc1.type = 'sine';
+                        osc2.type = 'sine';
+                        osc1.detune.value = -2;
+                        osc2.detune.value = 2;
+                        
+                        noiseSource = audioCtx.createBufferSource();
+                        noiseSource.buffer = noiseBuffer;
+                        noiseSource.loop = true;
+                        const noiseFilter = audioCtx.createBiquadFilter();
+                        noiseFilter.type = 'bandpass';
+                        noiseFilter.frequency.value = 4000;
+                        noiseFilter.Q.value = 0.5;
+                        
+                        const noiseEnvelope = audioCtx.createGain();
+                        noiseEnvelope.gain.setValueAtTime(0, audioCtx.currentTime);
+                        noiseEnvelope.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 0.1);
+                        noiseEnvelope.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+                        
+                        noiseSource.connect(noiseFilter);
+                        noiseFilter.connect(noiseEnvelope);
+                        noiseEnvelope.connect(gainNode);
+
+                        lfo.type = 'sine';
+                        lfo.frequency.value = 5.5; 
+                        
+                        lfoGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                        lfoGain.gain.setValueAtTime(0, audioCtx.currentTime + 0.2); 
+                        lfoGain.gain.linearRampToValueAtTime(8, audioCtx.currentTime + 0.6); 
+                        
+                        filter.type = 'lowpass';
+                        filter.frequency.value = frequency * 3; 
+
+                        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.6, audioCtx.currentTime + 0.1); 
+                        gainNode.gain.exponentialRampToValueAtTime(0.4, audioCtx.currentTime + 0.4);
+
+                    } else if (currentInstrument === 'piano') {
+                        osc1.type = 'triangle';
+                        osc2.type = 'sawtooth';
+                        osc2.detune.value = 2;
+                        
+                        lfoGain.gain.value = 0; 
+                        
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(frequency * 6, audioCtx.currentTime);
+                        filter.frequency.exponentialRampToValueAtTime(frequency, audioCtx.currentTime + 1.5);
+                        
+                        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.01); 
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 3.0); 
+
+                    } else if (currentInstrument === 'viola') {
+                        osc3 = audioCtx.createOscillator();
+                        osc3.frequency.value = frequency; 
+                        osc2.type = 'triangle'; 
+                        osc3.type = 'triangle'; 
+
+                        noiseSource = audioCtx.createBufferSource();
+                        noiseSource.buffer = noiseBuffer;
+                        noiseSource.loop = true;
+                        
+                        const noiseFilter = audioCtx.createBiquadFilter();
+                        noiseFilter.type = 'bandpass';
+                        noiseFilter.frequency.value = Math.min(frequency * 3, 10000); 
+                        noiseFilter.Q.value = 2.0;
+
+                        const noiseEnvelope = audioCtx.createGain();
+                        noiseEnvelope.gain.setValueAtTime(0, audioCtx.currentTime);
+                        noiseEnvelope.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.02); 
+                        noiseEnvelope.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                        
+                        noiseSource.connect(noiseFilter);
+                        noiseFilter.connect(noiseEnvelope);
+                        noiseEnvelope.connect(gainNode);
+
+                        osc1.detune.value = -4; 
+                        osc2.detune.value = 3;
+                        
+                        lfo.type = 'sine';
+                        lfo.frequency.value = 5.8; 
+                        
+                        lfoGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                        lfoGain.gain.setValueAtTime(0, audioCtx.currentTime + 0.15); 
+                        lfoGain.gain.linearRampToValueAtTime(10, audioCtx.currentTime + 0.5); 
+                        
+                        filter.type = 'lowpass';
+                        const baseCutoff = 1000;
+                        filter.frequency.setValueAtTime(baseCutoff, audioCtx.currentTime);
+                        filter.frequency.linearRampToValueAtTime(baseCutoff + (frequency * 3), audioCtx.currentTime + 0.1);
+                        filter.frequency.exponentialRampToValueAtTime(baseCutoff + (frequency * 1.5), audioCtx.currentTime + 0.4);
+                        filter.Q.value = 1.2; 
+
+                        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.1); 
+                        gainNode.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime + 0.4);
+
+                    } else if (currentInstrument === 'violin') {
+                        // ИСПРАВЛЕННАЯ СКРИПКА (плавный смычковый звук вместо клавесина)
+                        osc1.type = 'sawtooth';
+                        osc2.type = 'triangle'; // Треугольник смягчает резкость
+                        
+                        osc3 = audioCtx.createOscillator();
+                        osc3.type = 'sine'; // Мягкий резонанс корпуса на той же частоте
+                        osc3.frequency.value = frequency; 
+
+                        noiseSource = audioCtx.createBufferSource();
+                        noiseSource.buffer = noiseBuffer;
+                        noiseSource.loop = true;
+                        
+                        const noiseFilter = audioCtx.createBiquadFilter();
+                        noiseFilter.type = 'bandpass';
+                        noiseFilter.frequency.value = 2500; 
+                        noiseFilter.Q.value = 1.0;
+
+                        const noiseEnvelope = audioCtx.createGain();
+                        noiseEnvelope.gain.setValueAtTime(0, audioCtx.currentTime);
+                        noiseEnvelope.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.25); // Плавное нарастание трения
+                        noiseEnvelope.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+                        
+                        noiseSource.connect(noiseFilter);
+                        noiseFilter.connect(noiseEnvelope);
+                        noiseEnvelope.connect(gainNode);
+
+                        osc1.detune.value = -2; 
+                        osc2.detune.value = 2;
+                        
+                        lfo.type = 'sine';
+                        lfo.frequency.value = 5.5; 
+                        
+                        // Очень плавное появление вибрато (настоящие скрипачи вибрируют не сразу)
+                        lfoGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                        lfoGain.gain.setValueAtTime(0, audioCtx.currentTime + 0.3); 
+                        lfoGain.gain.linearRampToValueAtTime(12, audioCtx.currentTime + 0.8); 
+                        
+                        // Смычковый фильтр: раскрывается постепенно, убирая щелчок атаки
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(frequency * 1.2, audioCtx.currentTime); 
+                        filter.frequency.linearRampToValueAtTime(frequency * 3.0, audioCtx.currentTime + 0.3); 
+                        filter.frequency.exponentialRampToValueAtTime(frequency * 2.0, audioCtx.currentTime + 1.0);
+                        filter.Q.value = 1.2; 
+
+                        // Мягкая и медленная атака громкости (имитация движения смычка)
+                        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.25); 
+                        gainNode.gain.exponentialRampToValueAtTime(0.4, audioCtx.currentTime + 1.0); 
+
+                    } else if (currentInstrument === 'galvatron') {
+                        osc1.type = 'sawtooth';
+                        osc2.type = 'sawtooth'; 
+                        osc1.detune.value = -2;
+                        osc2.detune.value = 2;
+
+                        const growl = audioCtx.createOscillator();
+                        growl.type = 'sawtooth';
+                        growl.frequency.value = 35; 
+                        const growlGain = audioCtx.createGain();
+                        growlGain.gain.value = 20; 
+                        growl.connect(growlGain);
+                        growlGain.connect(osc1.frequency);
+                        growlGain.connect(osc2.frequency);
+                        osc3 = growl; 
+
+                        noiseSource = audioCtx.createBufferSource();
+                        noiseSource.buffer = noiseBuffer;
+                        noiseSource.loop = true;
+                        const noiseFilter = audioCtx.createBiquadFilter();
+                        noiseFilter.type = 'bandpass';
+                        noiseFilter.frequency.value = frequency * 2;
+                        noiseFilter.Q.value = 1.0;
+                        const noiseEnvelope = audioCtx.createGain();
+                        noiseEnvelope.gain.setValueAtTime(0, audioCtx.currentTime);
+                        noiseEnvelope.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 0.05);
+                        noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                        noiseSource.connect(noiseFilter); 
+                        noiseFilter.connect(noiseEnvelope); 
+                        noiseEnvelope.connect(gainNode);
+
+                        lfo.type = 'sine';
+                        lfo.frequency.value = 5.0; 
+                        lfoGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                        lfoGain.gain.setValueAtTime(0, audioCtx.currentTime + 0.1); 
+                        lfoGain.gain.linearRampToValueAtTime(15, audioCtx.currentTime + 0.4);
+
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(frequency * 1.5, audioCtx.currentTime);
+                        filter.frequency.linearRampToValueAtTime(frequency * 5.0, audioCtx.currentTime + 0.04); 
+                        filter.frequency.exponentialRampToValueAtTime(frequency * 2.5, audioCtx.currentTime + 0.3); 
+                        filter.Q.value = 3.5; 
+
+                        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.04); 
+                        gainNode.gain.exponentialRampToValueAtTime(0.6, audioCtx.currentTime + 0.2);
+                    }
+                }
+
+                lfo.connect(lfoGain);
+                lfoGain.connect(osc1.detune);
+                lfoGain.connect(osc2.detune);
+
+                osc1.connect(filter);
+                osc2.connect(filter);
+                if (osc3) {
+                    osc3.connect(filter);
+                    osc3.start();
+                }
+                if (noiseSource) {
+                    noiseSource.start();
+                }
+
+                filter.connect(gainNode);
+                gainNode.connect(masterGain);
+
+                osc1.start();
+                osc2.start();
+                lfo.start();
+
+                activeSynths[noteName] = { osc1, osc2, osc3, lfo, gainNode, filter, noiseSource };
+            }
+
+            function stopTone(noteName) {
+                const synth = activeSynths[noteName];
+                if (synth) {
+                    if (synth.isKS) {
+                        synth.feedbackNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                        synth.feedbackNode.gain.setValueAtTime(synth.feedbackNode.gain.value, audioCtx.currentTime);
+                        synth.feedbackNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                        
+                        synth.gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                        synth.gainNode.gain.setValueAtTime(synth.gainNode.gain.value, audioCtx.currentTime);
+                        synth.gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15); 
+                        
+                        setTimeout(() => { if (synth.burst) synth.burst.stop(); }, 200);
+                        delete activeSynths[noteName];
+                        return;
+                    }
+
+                    const { osc1, osc2, osc3, lfo, gainNode, noiseSource } = synth;
+                    
+                    let releaseTime = 0.3; 
+                    if (isSynthMode) {
+                        releaseTime = 1.5; 
+                    } else if (currentInstrument === 'piano') {
+                        releaseTime = 0.4;
+                    } else if (currentInstrument === 'flute' || currentInstrument === 'galvatron') {
+                        releaseTime = 0.15; 
+                    } else if (currentInstrument === 'violin') {
+                        releaseTime = 0.6; // Долгий, естественный спад резонанса скрипки после остановки смычка
+                    } else if (currentInstrument === 'viola') {
+                        releaseTime = 0.4; 
+                    }
+                    
+                    const stopTime = audioCtx.currentTime + releaseTime;
+
+                    gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(gainNode.gain.value, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, stopTime);
+
+                    osc1.stop(stopTime);
+                    osc2.stop(stopTime);
+                    if (osc3) osc3.stop(stopTime);
+                    lfo.stop(stopTime);
+                    if (noiseSource) noiseSource.stop(stopTime);
+                    
+                    delete activeSynths[noteName];
+                }
+            }
+
+            // --- 2. Keyboard & UI Logic ---
+            
+            const notesTemplate = [
+                { name: 'C', type: 'white' }, { name: 'C#', type: 'black' },
+                { name: 'D', type: 'white' }, { name: 'D#', type: 'black' },
+                { name: 'E', type: 'white' }, { name: 'F', type: 'white' },
+                { name: 'F#', type: 'black' }, { name: 'G', type: 'white' },
+                { name: 'G#', type: 'black' }, { name: 'A', type: 'white' },
+                { name: 'A#', type: 'black' }, { name: 'B', type: 'white' }
+            ];
+
+            const keyboardEl = document.getElementById('keyboard');
+            const fingerboardEl = document.getElementById('fingerboard');
+            const keysMap = {}; 
+
+            function buildKeyboard() {
+                if (!keyboardEl || !fingerboardEl) return;
+
+                for (let octave = 0; octave < 3; octave++) {
+                    notesTemplate.forEach((note) => {
+                        const noteIndex = octave * 12 + notesTemplate.indexOf(note);
+                        keysMap[noteIndex] = []; 
+
+                        const fret = document.createElement('div');
+                        fret.className = 'fb-fret';
+                        fret.dataset.noteIndex = noteIndex;
+                        
+                        bindPlayEvents(fret, noteIndex);
+                        fingerboardEl.appendChild(fret);
+                        keysMap[noteIndex].push(fret);
+
+                        const key = document.createElement('div');
+                        key.className = `key key-${note.type}`;
+                        
+                        if (note.type === 'white') {
+                            const span = document.createElement('span');
+                            span.innerText = note.name;
+                            key.appendChild(span);
+                        }
+                        key.dataset.noteIndex = noteIndex;
+
+                        bindPlayEvents(key, noteIndex);
+                        keyboardEl.appendChild(key);
+                        keysMap[noteIndex].push(key);
+                    });
+                }
+            }
+
+            function bindPlayEvents(el, noteIndex) {
+                el.addEventListener('mousedown', () => pressKey(noteIndex));
+                el.addEventListener('mouseenter', (e) => {
+                    if (e.buttons === 1) pressKey(noteIndex); 
+                });
+                el.addEventListener('mouseup', () => releaseKey(noteIndex));
+                el.addEventListener('mouseleave', () => releaseKey(noteIndex));
+                
+                el.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); 
+                    pressKey(noteIndex);
+                });
+                el.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    releaseKey(noteIndex);
+                });
+                el.addEventListener('touchcancel', (e) => {
+                    e.preventDefault();
+                    releaseKey(noteIndex);
+                });
+            }
+
+            function getFrequency(noteIndex) {
+                let baseMidi;
+                switch(currentInstrument) {
+                    case 'flute': baseMidi = 72; break;       
+                    case 'viola': baseMidi = 53; break;       
+                    case 'piano': baseMidi = 60; break;       
+                    case 'violin': baseMidi = 60; break;      
+                    case 'electon': baseMidi = 48; break;      
+                    case 'galvatron': baseMidi = 51; break;   
+                    default: baseMidi = 60;
+                }
+                
+                const safeNoteIndex = Number(noteIndex);
+                const safeTranspose = Number(transposeValue);
+                const midiNote = baseMidi + safeNoteIndex + safeTranspose;
+                
+                return 440 * Math.pow(2, (midiNote - 69) / 12);
+            }
+
+            // --- HISTORY RECORDING STATE ---
+            let playHistory = [];
+            let activeRecordings = {};
+            let lastReleaseTime = null;
+            let isPlayingHistory = false;
+
+            function getNoteNameDisplay(noteIndex) {
+                const octave = Math.floor(noteIndex / 12) + 1; 
+                const noteName = notesTemplate[noteIndex % 12].name;
+                return `${noteName}${octave}`;
+            }
+
+            function updateHistoryUI() {
+                const listEl = document.getElementById('history-list');
+                const emptyEl = document.getElementById('history-empty');
+                if(!listEl) return;
+                
+                if (playHistory.length === 0) {
+                    if(emptyEl) emptyEl.style.display = 'block';
+                    return;
+                }
+                if(emptyEl) emptyEl.style.display = 'none';
+
+                listEl.innerHTML = '';
+                playHistory.forEach((note, index) => {
+                    // Карточка записанной ноты (уменьшена в 2 раза)
+                    const item = document.createElement('div');
+                    item.className = 'bg-black/60 p-1 rounded flex flex-col justify-center items-center border border-amber-500/30 shadow-md min-w-[32px] flex-shrink-0 h-[32px] relative';
+                    
+                    const noteSpan = document.createElement('span');
+                    noteSpan.className = 'font-bold text-amber-400 text-xs leading-none';
+                    noteSpan.innerText = note.noteNameDisplay;
+
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'text-[8px] text-amber-600/80 leading-none mt-0.5';
+                    timeSpan.innerText = `${note.durationMs}ms`;
+
+                    item.appendChild(noteSpan);
+                    item.appendChild(timeSpan);
+                    listEl.appendChild(item);
+
+                    // Соединительная линия (Пауза)
+                    if (note.pauseAfterMs > 0 && index < playHistory.length - 1) {
+                        const pauseDiv = document.createElement('div');
+                        pauseDiv.className = 'flex flex-col items-center justify-center min-w-[24px] flex-shrink-0 opacity-70';
+                        pauseDiv.innerHTML = `<span class="text-[8px] text-amber-500/80 mb-0.5 block leading-none">${note.pauseAfterMs}</span><div class="h-px w-full bg-amber-700/50"></div>`;
+                        listEl.appendChild(pauseDiv);
+                    }
+                });
+                
+                // Автоматическая горизонтальная прокрутка вправо при появлении новых нот
+                listEl.scrollLeft = listEl.scrollWidth;
+            }
+
+            function pressKey(noteIndex, isAutomated = false) {
+                const els = keysMap[noteIndex];
+                if (!els || els.length === 0) return;
+                
+                if (!isAutomated && !isPlayingAI && !isPlayingHistory) {
+                    const now = Date.now();
+                    if (playHistory.length > 0 && lastReleaseTime) {
+                        const pause = Math.min(5000, now - lastReleaseTime); 
+                        playHistory[playHistory.length - 1].pauseAfterMs = pause;
+                    }
+                    
+                    const noteEntry = {
+                        keyIndex: noteIndex,
+                        noteNameDisplay: getNoteNameDisplay(noteIndex),
+                        startTime: now,
+                        durationMs: 200, 
+                        pauseAfterMs: 0
+                    };
+                    
+                    playHistory.push(noteEntry);
+                    activeRecordings[noteIndex] = noteEntry;
+                    
+                    if (playHistory.length > 12) {
+                        playHistory.shift();
+                    }
+                    updateHistoryUI();
+                }
+
+                if (!els[0].classList.contains('active')) {
+                    els.forEach(el => el.classList.add('active'));
+                    const freq = getFrequency(noteIndex);
+                    playTone(freq, noteIndex);
+                }
+            }
+
+            function releaseKey(noteIndex, isAutomated = false) {
+                const els = keysMap[noteIndex];
+                if (!els || els.length === 0) return;
+
+                if (!isAutomated && !isPlayingAI && !isPlayingHistory && activeRecordings[noteIndex]) {
+                    activeRecordings[noteIndex].durationMs = Date.now() - activeRecordings[noteIndex].startTime;
+                    delete activeRecordings[noteIndex];
+                    lastReleaseTime = Date.now();
+                    updateHistoryUI();
+                }
+
+                if (els[0].classList.contains('active')) {
+                    els.forEach(el => el.classList.remove('active'));
+                    stopTone(noteIndex);
+                }
+            }
+
+            const keyMap = {
+                'a': 0, 'w': 1, 's': 2, 'e': 3, 'd': 4, 'f': 5, 't': 6, 'g': 7, 'y': 8, 'h': 9, 'u': 10, 'j': 11,
+                'k': 12, 'o': 13, 'l': 14, 'p': 15, ';': 16, '\'': 17
+            };
+
+            window.addEventListener('keydown', (e) => {
+                if (e.repeat) return;
+                const noteIndex = keyMap[e.key.toLowerCase()];
+                if (noteIndex !== undefined) {
+                    pressKey(noteIndex);
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const noteIndex = keyMap[e.key.toLowerCase()];
+                if (noteIndex !== undefined) {
+                    releaseKey(noteIndex);
+                }
+            });
+
+            // --- 3. UI Interactions ---
+            const btnFlute = document.getElementById('btn-flute');
+            const btnViola = document.getElementById('btn-viola');
+            const btnPiano = document.getElementById('btn-piano');
+            const btnViolin = document.getElementById('btn-violin');
+            const btnElecton = document.getElementById('btn-electon');
+            const btnGalvatron = document.getElementById('btn-galvatron');
+            const descText = document.getElementById('instrument-desc');
+
+            const descriptions = {
+                'flute': "Флейта: Чистый, 'свистящий' звук с мягкой атакой.",
+                'viola': "Альт: Мягкий, глубокий и теплый струнный тембр.",
+                'piano': "Пианино: Резкая атака молоточка и долгое резонирующее затухание.",
+                'violin': "Скрипка: Яркий, реалистичный звук с мягким смычком и корпусной реверберацией.",
+                'electon': "Електон: Акустическая щипковая атака с металлическим резонансом струны.",
+                'galvatron': "Гальватрон: Плотный, гудящий тембр с дыханием и глубоким вибрато."
+            };
+
+            function setInstrument(instrument) {
+                currentInstrument = instrument;
+                
+                Object.keys(activeSynths).forEach(noteIndex => stopTone(noteIndex));
+                document.querySelectorAll('.key.active').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.fb-fret.active').forEach(el => el.classList.remove('active'));
+
+                const buttons = {
+                    'flute': btnFlute,
+                    'viola': btnViola,
+                    'piano': btnPiano,
+                    'violin': btnViolin,
+                    'electon': btnElecton,
+                    'galvatron': btnGalvatron
+                };
+
+                Object.keys(buttons).forEach(key => {
+                    if (buttons[key]) {
+                        if (key === instrument) {
+                            buttons[key].className = "px-4 py-2 rounded-full font-bold transition-all bg-amber-700 text-white shadow-lg text-sm sm:text-base";
+                        } else {
+                            buttons[key].className = "px-4 py-2 rounded-full font-bold transition-all text-amber-500 hover:text-white hover:bg-white/10 text-sm sm:text-base";
+                        }
+                    }
+                });
+
+                if (!isSynthMode && descText) {
+                    descText.innerText = descriptions[instrument];
+                }
+            }
+
+            if(btnFlute) btnFlute.addEventListener('click', () => setInstrument('flute'));
+            if(btnViola) btnViola.addEventListener('click', () => setInstrument('viola'));
+            if(btnPiano) btnPiano.addEventListener('click', () => setInstrument('piano'));
+            if(btnViolin) btnViolin.addEventListener('click', () => setInstrument('violin'));
+            if(btnElecton) btnElecton.addEventListener('click', () => setInstrument('electon'));
+            if(btnGalvatron) btnGalvatron.addEventListener('click', () => setInstrument('galvatron'));
+
+            const transposeSlider = document.getElementById('transpose');
+            const transposeVal = document.getElementById('transpose-val');
+            
+            if(transposeSlider) {
+                transposeSlider.addEventListener('input', (e) => {
+                    transposeValue = parseInt(e.target.value, 10); 
+                    if(transposeVal) transposeVal.innerText = transposeValue > 0 ? '+' + transposeValue : transposeValue;
+                    Object.keys(activeSynths).forEach(idx => stopTone(idx));
+                });
+            }
+
+            const synthToggle = document.getElementById('synth-mode-toggle');
+            const synthLabel = document.getElementById('synth-label');
+            const aiComposerPanel = document.getElementById('ai-composer-panel');
+            const aiComposerTitle = document.getElementById('ai-composer-title');
+            const mainTitle = document.getElementById('main-title');
+            const controlsPanel = document.getElementById('controls-panel');
+            const historyPanel = document.getElementById('history-panel');
+            const historyTitle = document.getElementById('history-title');
+
+            if(synthToggle) {
+                synthToggle.addEventListener('change', (e) => {
+                    isSynthMode = e.target.checked;
+                    Object.keys(activeSynths).forEach(noteIndex => stopTone(noteIndex));
+
+                    if (isSynthMode) {
+                        document.body.style.backgroundImage = "linear-gradient(to bottom, #10002b, #240046, #3c096c)";
+                        document.querySelector('.wood-panel').style.boxShadow = "0 0 50px rgba(192, 38, 211, 0.4), inset 0 0 30px rgba(192, 38, 211, 0.2)";
+                        document.querySelector('.wood-panel').style.border = "1px solid rgba(232, 121, 249, 0.4)";
+                        
+                        if(synthLabel) {
+                            synthLabel.classList.replace('text-amber-400', 'text-fuchsia-400');
+                            synthLabel.style.textShadow = "0 0 10px #c026d3";
+                        }
+                        if(descText) {
+                            descText.innerText = "РЕЖИМ КИБЕРПАНК: Аналоговый синтезатор CS-80, расстрой, дилэй.";
+                            descText.classList.replace('text-amber-400/70', 'text-fuchsia-300/80');
+                        }
+                        
+                        if(aiComposerPanel) {
+                            aiComposerPanel.classList.replace('border-amber-800/50', 'border-fuchsia-600/50');
+                            aiComposerPanel.classList.replace('bg-black/40', 'bg-[#10002b]/60');
+                        }
+                        if(aiComposerTitle) aiComposerTitle.classList.replace('text-amber-500', 'text-fuchsia-400');
+                        if(mainTitle) mainTitle.classList.replace('text-amber-500', 'text-fuchsia-500');
+                        if(controlsPanel) controlsPanel.classList.replace('border-amber-900/50', 'border-fuchsia-900/50');
+                        const tLabel = document.getElementById('transpose-label');
+                        if(tLabel) tLabel.classList.replace('text-amber-400', 'text-fuchsia-400');
+                        if(transposeVal) transposeVal.classList.replace('text-amber-200', 'text-fuchsia-200');
+                        const fText = document.getElementById('footer-text');
+                        if(fText) fText.classList.replace('text-amber-600/50', 'text-fuchsia-600/50');
+                        
+                        if(historyPanel) {
+                            historyPanel.classList.replace('border-amber-800/50', 'border-fuchsia-900/50');
+                        }
+                        if(historyTitle) historyTitle.classList.replace('text-amber-500', 'text-fuchsia-400');
+
+                        document.getElementById('fingerboard').classList.replace('custom-scrollbar', 'fuchsia-scrollbar');
+                        document.getElementById('keyboard').classList.replace('custom-scrollbar', 'fuchsia-scrollbar');
+                        document.getElementById('history-list').classList.replace('custom-scrollbar', 'fuchsia-scrollbar');
+
+                    } else {
+                        document.body.style.backgroundImage = "";
+                        document.querySelector('.wood-panel').style.boxShadow = "";
+                        document.querySelector('.wood-panel').style.border = "1px solid rgba(120, 53, 15, 0.3)";
+                        
+                        if(synthLabel) {
+                            synthLabel.classList.replace('text-fuchsia-400', 'text-amber-400');
+                            synthLabel.style.textShadow = "";
+                        }
+                        if(descText) descText.classList.replace('text-fuchsia-300/80', 'text-amber-400/70');
+                        setInstrument(currentInstrument);
+                        
+                        if(aiComposerPanel) {
+                            aiComposerPanel.classList.replace('border-fuchsia-600/50', 'border-amber-800/50');
+                            aiComposerPanel.classList.replace('bg-[#10002b]/60', 'bg-black/40');
+                        }
+                        if(aiComposerTitle) aiComposerTitle.classList.replace('text-fuchsia-400', 'text-amber-500');
+                        if(mainTitle) mainTitle.classList.replace('text-fuchsia-500', 'text-amber-500');
+                        if(controlsPanel) controlsPanel.classList.replace('border-fuchsia-900/50', 'border-amber-900/50');
+                        const tLabel = document.getElementById('transpose-label');
+                        if(tLabel) tLabel.classList.replace('text-fuchsia-400', 'text-amber-400');
+                        if(transposeVal) transposeVal.classList.replace('text-fuchsia-200', 'text-amber-200');
+                        const fText = document.getElementById('footer-text');
+                        if(fText) fText.classList.replace('text-fuchsia-600/50', 'text-amber-600/50');
+                        
+                        if(historyPanel) {
+                            historyPanel.classList.replace('border-fuchsia-900/50', 'border-amber-800/50');
+                        }
+                        if(historyTitle) historyTitle.classList.replace('text-fuchsia-400', 'text-amber-500');
+
+                        document.getElementById('fingerboard').classList.replace('fuchsia-scrollbar', 'custom-scrollbar');
+                        document.getElementById('keyboard').classList.replace('fuchsia-scrollbar', 'custom-scrollbar');
+                        document.getElementById('history-list').classList.replace('fuchsia-scrollbar', 'custom-scrollbar');
+                    }
+                });
+            }
+
+            const btnPlayHistory = document.getElementById('btn-play-history');
+            if(btnPlayHistory) {
+                btnPlayHistory.addEventListener('click', async () => {
+                    if (isPlayingAI || isPlayingHistory || playHistory.length === 0) return;
+                    
+                    isPlayingHistory = true;
+                    btnPlayHistory.disabled = true;
+                    btnPlayHistory.classList.add('opacity-50', 'cursor-not-allowed');
+                    const originalText = btnPlayHistory.innerHTML;
+                    btnPlayHistory.innerHTML = '▶ Играет...';
+
+                    for (const note of playHistory) {
+                        if (!isPlayingHistory) break; 
+                        
+                        const validIndex = Math.max(0, Math.min(35, note.keyIndex));
+                        
+                        pressKey(validIndex, true); 
+                        
+                        await new Promise(r => setTimeout(r, note.durationMs));
+                        
+                        releaseKey(validIndex, true);
+                        
+                        if (note.pauseAfterMs > 0) {
+                            await new Promise(r => setTimeout(r, note.pauseAfterMs));
+                        }
+                    }
+
+                    isPlayingHistory = false;
+                    btnPlayHistory.disabled = false;
+                    btnPlayHistory.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btnPlayHistory.innerHTML = originalText;
+                });
+            }
+
+            const startOverlay = document.getElementById('start-overlay');
+            if(startOverlay) {
+                startOverlay.addEventListener('click', function() {
+                    initAudio();
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                    this.style.opacity = '0';
+                    setTimeout(() => {
+                        this.style.display = 'none';
+                    }, 500);
+                });
+            }
+
+            // Initialize Keyboard
+            buildKeyboard();
+
+            // --- 4. Gemini AI Composer Integration ---
+            const apiKey = ""; 
+            const btnCompose = document.getElementById('btn-compose');
+            const aiPromptInput = document.getElementById('ai-prompt');
+            const aiStatus = document.getElementById('ai-status');
+            let isPlayingAI = false;
+
+            async function fetchWithRetry(url, options, maxRetries = 5) {
+                let delays = [1000, 2000, 4000, 8000, 16000];
+                for (let i = 0; i < maxRetries; i++) {
+                    try {
+                        const response = await fetch(url, options);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return await response.json();
+                    } catch (error) {
+                        if (i === maxRetries - 1) throw error;
+                        await new Promise(res => setTimeout(res, delays[i]));
+                    }
+                }
+            }
+
+            async function composeWithGemini() {
+                if (isPlayingAI) return;
+                
+                const overlay = document.getElementById('start-overlay');
+                if (overlay && overlay.style.display !== 'none') {
+                    overlay.click();
+                }
+
+                const prompt = aiPromptInput ? aiPromptInput.value.trim() : "Случайная красивая мелодия";
+                
+                if(btnCompose) {
+                    btnCompose.disabled = true;
+                    btnCompose.classList.add('opacity-50', 'cursor-not-allowed');
+                    btnCompose.innerHTML = "Создаю...";
+                }
+                
+                if(aiStatus) {
+                    aiStatus.innerText = "✨ ИИ пишет симфонию... подождите.";
+                    aiStatus.classList.remove('text-red-400');
+                    aiStatus.classList.add(isSynthMode ? 'text-fuchsia-300/80' : 'text-amber-400/70', 'animate-pulse');
+                }
+
+                const instName = isSynthMode ? "киберпанк синтезатор 80х годов" : currentInstrument;
+                const systemInstruction = `Вы мастер ИИ-композитор. Создайте короткую выразительную мелодию (5-20 нот) по запросу. Текущий инструмент: ${instName}. У инструмента 3 октавы (индексы от 0 до 35). Верните строго валидный JSON по указанной схеме.`;
+                
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    systemInstruction: { parts: [{ text: systemInstruction }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                title: { type: "STRING", description: "A creative title for the composition" },
+                                melody: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            keyIndex: { type: "INTEGER", description: "Index from 0 to 35" },
+                                            durationMs: { type: "INTEGER", description: "Duration to hold note (e.g., 200 to 1200 ms)" },
+                                            pauseAfterMs: { type: "INTEGER", description: "Pause after note (e.g., 0 to 500 ms)" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                    
+                    const result = await fetchWithRetry(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!textResponse) throw new Error("No response from Gemini");
+
+                    const composition = JSON.parse(textResponse);
+                    
+                    if(aiStatus) {
+                        aiStatus.classList.remove('animate-pulse');
+                        aiStatus.innerText = `🎶 Играет: "${composition.title}"`;
+                    }
+                    
+                    await playAIMelody(composition.melody);
+
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    if(aiStatus) {
+                        aiStatus.classList.remove('animate-pulse', 'text-amber-400/70', 'text-fuchsia-300/80');
+                        aiStatus.classList.add('text-red-400');
+                        aiStatus.innerText = "Ошибка генерации. Муза сейчас недоступна.";
+                    }
+                } finally {
+                    if(btnCompose) {
+                        btnCompose.disabled = false;
+                        btnCompose.classList.remove('opacity-50', 'cursor-not-allowed');
+                        btnCompose.innerHTML = "Создать ✨";
+                    }
+                }
+            }
+
+            async function playAIMelody(melody) {
+                isPlayingAI = true;
+                
+                for (const note of melody) {
+                    if (!isPlayingAI) break; 
+                    
+                    const validIndex = Math.max(0, Math.min(35, note.keyIndex));
+                    
+                    pressKey(validIndex, true);
+                    
+                    await new Promise(r => setTimeout(r, note.durationMs || 500));
+                    
+                    releaseKey(validIndex, true);
+                    
+                    if (note.pauseAfterMs > 0) {
+                        await new Promise(r => setTimeout(r, note.pauseAfterMs));
+                    }
+                }
+                
+                isPlayingAI = false;
+                if (aiStatus && aiStatus.innerText.startsWith("🎶")) {
+                    aiStatus.innerText = "✨ Воспроизведение завершено. Создайте еще одну!";
+                    setTimeout(() => { if (!isPlayingAI && aiStatus) aiStatus.innerText = ""; }, 4000);
+                }
+            }
+
+            if(btnCompose) btnCompose.addEventListener('click', composeWithGemini);
+            if(aiPromptInput) {
+                aiPromptInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') composeWithGemini();
+                });
+            }
+
+        }); // End DOMContentLoaded
+    </script>
+</body>
+</html>
